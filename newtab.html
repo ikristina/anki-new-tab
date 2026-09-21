@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anki</title>
+  <link rel="stylesheet" href="newtab.css">
+  <script type="module" src="newtab.js"></script>
+</head>
+<body>
+  <header>
+    <div class="meta">
+      <span id="deck-label"></span>
+      <span id="card-kind" class="pill" hidden></span>
+      <span id="due-count"></span>
+    </div>
+
+    <div id="pomodoro" data-phase="work" data-status="idle">
+      <span id="pomo-phase">Focus</span>
+      <span id="pomo-time">25:00</span>
+      <span id="pomo-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <button id="pomo-toggle" class="pomo-btn">Start</button>
+      <button id="pomo-skip" class="pomo-btn" title="Skip to the next phase">Skip</button>
+      <button id="pomo-reset" class="pomo-btn" title="Reset the timer">Reset</button>
+      <div class="pomo-bar"><i id="pomo-progress"></i></div>
+    </div>
+
+    <button id="settings-btn" class="icon-btn" aria-label="Settings" aria-expanded="false" aria-controls="settings">&#9881;</button>
+  </header>
+
+  <main>
+    <section id="status" role="status" hidden>
+      <p id="status-message"></p>
+      <div class="actions">
+        <button id="retry-btn" hidden>Retry</button>
+        <button id="choose-decks-btn" hidden>Choose decks</button>
+      </div>
+    </section>
+
+    <section id="card-view" hidden>
+      <div class="card-shell">
+        <iframe id="card-frame" sandbox="allow-same-origin" title="Anki card"></iframe>
+      </div>
+      <p id="notice" role="alert" hidden></p>
+      <div class="controls">
+        <button id="show-answer" class="primary big">Show answer <kbd>Space</kbd></button>
+        <div id="grades" hidden>
+          <button data-ease="1" class="grade again">Again <kbd>1</kbd><small></small></button>
+          <button data-ease="2" class="grade hard">Hard <kbd>2</kbd><small></small></button>
+          <button data-ease="3" class="grade good">Good <kbd>3</kbd><small></small></button>
+          <button data-ease="4" class="grade easy">Easy <kbd>4</kbd><small></small></button>
+        </div>
+        <button id="skip-btn" class="link">Skip this card</button>
+      </div>
+    </section>
+  </main>
+
+  <aside id="settings" hidden>
+    <h2>Settings</h2>
+
+    <section>
+      <h3>Decks</h3>
+      <p class="hint">Cards come from the decks you tick, subdecks included. With none ticked, every deck is used.</p>
+      <div id="deck-list"></div>
+      <button id="clear-decks-btn">Use all decks</button>
+    </section>
+
+    <section>
+      <h3>New cards</h3>
+      <label class="row"><input type="checkbox" id="include-new"> Include new cards</label>
+      <label class="row">Daily limit <input type="number" id="new-limit" min="1" max="500" step="1"></label>
+      <p class="hint">While you're under the limit, about 1 in 4 cards is new. Cards you first studied today count toward it, wherever you studied them.</p>
+    </section>
+
+    <section>
+      <h3>Pomodoro (minutes)</h3>
+      <label class="row">Focus <input type="number" id="pomo-work" min="1" max="180" step="1"></label>
+      <label class="row">Break <input type="number" id="pomo-break" min="1" max="60" step="1"></label>
+      <label class="row">Long break <input type="number" id="pomo-long" min="1" max="120" step="1"></label>
+      <p class="hint">Every fourth focus session is followed by the long break. A notification appears when a phase ends.</p>
+    </section>
+
+    <div class="actions"><button id="done-btn" class="primary">Done</button></div>
+  </aside>
+</body>
+</html>
