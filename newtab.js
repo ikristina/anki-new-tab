@@ -5,6 +5,7 @@ import {
   buildIntroducedTodayQuery,
   newCardAllowance,
   shouldPickNew,
+  cardChanged,
   pickRandom,
   compareDeckNames,
   AnkiUnreachable,
@@ -87,8 +88,10 @@ function showError(err) {
   showStatus(describeError(err), { retry: true });
 }
 
-function setNotice(message) {
+// tone: 'error' for failures, 'info' for things that were handled automatically.
+function setNotice(message, tone = 'error') {
   els.notice.textContent = message ?? '';
+  els.notice.dataset.tone = tone;
   els.notice.hidden = !message;
 }
 
@@ -172,7 +175,8 @@ async function resolveSelectedDecks(settings) {
   return kept;
 }
 
-async function loadNext(excludeId = null) {
+// `notice` is shown under the next card, e.g. to explain why the previous one was skipped.
+async function loadNext(excludeId = null, notice = '') {
   const token = ++state.loadToken;
   state.card = null;
   showStatus('Loading…');
@@ -222,6 +226,7 @@ async function loadNext(excludeId = null) {
     if (token !== state.loadToken) return;
 
     showCard(card);
+    if (notice) setNotice(notice, 'info');
   } catch (err) {
     if (token === state.loadToken) showError(err);
   }
@@ -229,23 +234,57 @@ async function loadNext(excludeId = null) {
 
 // ---------- grading ----------
 
+const CHANGED_NOTICE =
+  "That card changed in Anki after it was shown (reviewed elsewhere, suspended or buried), so your answer wasn't saved. Here's another card.";
+const OUTCOME_UNKNOWN_NOTICE =
+  "Anki didn't respond in time, so this answer may not have been saved. Check Anki, then grade again.";
+
+async function fetchCard(cardId, timeoutMs) {
+  const [card] = await invoke('cardsInfo', { cards: [cardId] }, { timeoutMs });
+  return card;
+}
+
+// After a timeout the answer may still have been applied (Anki handles requests in order,
+// so this check runs after it). Grading again would then count the review twice.
+async function wasAnswered(card) {
+  try {
+    const fresh = await fetchCard(card.cardId, 3000);
+    return fresh?.reps > card.reps;
+  } catch {
+    return false;
+  }
+}
+
 async function grade(ease) {
   if (!state.card || !state.revealed || state.busy) return;
-  const { cardId } = state.card;
+  const card = state.card;
   setBusy(true);
   setNotice('');
+  let sent = false;
   try {
-    const [accepted] = await invoke('answerCards', { answers: [{ cardId, ease }] }, { timeoutMs: 5000 });
+    // Another browser, tab or Anki itself may have graded, suspended or buried it since it
+    // was shown. Grading it now would double-count the review or overrule that change.
+    if (cardChanged(card, await fetchCard(card.cardId))) {
+      setBusy(false);
+      await loadNext(card.cardId, CHANGED_NOTICE);
+      return;
+    }
+    sent = true;
+    const [accepted] = await invoke('answerCards', { answers: [{ cardId: card.cardId, ease }] }, { timeoutMs: 5000 });
     if (!accepted) throw new AnkiError('the card may have changed in Anki. Skip it to load another.');
   } catch (err) {
-    const { deckName, queue, type } = state.card;
-    console.warn('answerCards failed', { cardId, ease, deckName, queue, type, error: err.message });
-    setNotice(describeError(err));
-    setBusy(false);
-    return;
+    const outcomeUnknown = sent && err instanceof AnkiUnreachable;
+    if (!(outcomeUnknown && (await wasAnswered(card)))) {
+      const { cardId, deckName, queue, type } = card;
+      console.warn('answerCards failed', { cardId, ease, deckName, queue, type, error: err.message });
+      setNotice(outcomeUnknown ? OUTCOME_UNKNOWN_NOTICE : describeError(err));
+      setBusy(false);
+      return;
+    }
+    // Timed out, but Anki had already recorded the answer: carry on as if it succeeded.
   }
   setBusy(false);
-  await loadNext(cardId);
+  await loadNext(card.cardId);
 }
 
 // ---------- pomodoro ----------

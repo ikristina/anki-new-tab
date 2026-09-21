@@ -7,6 +7,7 @@ import {
   newCardAllowance,
   shouldPickNew,
   NEW_CARD_SHARE,
+  cardChanged,
   pickRandom,
   compareDeckNames,
 } from './anki.js';
@@ -45,6 +46,16 @@ test('shouldPickNew: respects the allowance and the share', () => {
   assert.equal(shouldPickNew(0, 5, () => 0.99), true); // nothing due: always new
   assert.equal(shouldPickNew(500, 5, () => NEW_CARD_SHARE - 0.01), true);
   assert.equal(shouldPickNew(500, 5, () => NEW_CARD_SHARE), false);
+});
+
+test('cardChanged: detects a review, a suspend/bury, or a deleted card', () => {
+  const shown = { cardId: 7, reps: 3, queue: 2 };
+  assert.equal(cardChanged(shown, { cardId: 7, reps: 3, queue: 2 }), false);
+  assert.equal(cardChanged(shown, { cardId: 7, reps: 4, queue: 2 }), true); // graded elsewhere
+  assert.equal(cardChanged(shown, { cardId: 7, reps: 3, queue: -1 }), true); // suspended
+  assert.equal(cardChanged(shown, { cardId: 7, reps: 3, queue: -2 }), true); // buried
+  assert.equal(cardChanged(shown, {}), true); // AnkiConnect's answer for a missing card
+  assert.equal(cardChanged(shown, undefined), true);
 });
 
 test('pickRandom: covers every index and avoids the excluded id', () => {

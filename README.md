@@ -90,6 +90,8 @@ There's no build step. After you change a file, click the reload icon on the ext
 - Grades are saved to Anki's collection. Anki's window doesn't redraw by itself, so return to the Decks screen or re-run a search in Browse to see them.
 - The extension doesn't sync to AnkiWeb. Sync from Anki as usual.
 - Cards render in a sandboxed frame. JavaScript inside card templates doesn't run, and audio isn't supported yet.
+- **Several browsers or tabs at once** work fine: they share one Anki, which handles requests one at a time. Just before saving a grade, the extension re-checks the card. If it was reviewed, suspended or buried in the meantime (in another browser, another tab or Anki itself), your answer is skipped instead of counted twice, and you get another card. If Anki doesn't reply in time, the extension checks whether the answer was saved before asking you to grade again.
+- The Pomodoro timer is kept per browser, and settings sync only within the same browser account, so set them up once in each browser.
 - Your settings are saved with your browser profile (and sync across your devices if Chrome sync is on). The Pomodoro state stays on the current device.
 
 ## Troubleshooting

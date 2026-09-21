@@ -82,6 +82,15 @@ export function shouldPickNew(dueCount, allowance, rand = Math.random) {
   return dueCount === 0 || rand() < NEW_CARD_SHARE;
 }
 
+/**
+ * True if the card was reviewed, suspended, buried or deleted after `shown` was fetched,
+ * e.g. graded in another browser or in Anki itself. `reps` counts reviews and `queue`
+ * changes when a card is suspended or buried. `cardsInfo` returns `{}` for a missing card.
+ */
+export function cardChanged(shown, fresh) {
+  return !fresh?.cardId || fresh.reps !== shown.reps || fresh.queue !== shown.queue;
+}
+
 /** Uniform pick, avoiding `excludeId` unless it's the only candidate. */
 export function pickRandom(ids, excludeId = null, rand = Math.random) {
   const pool = ids.length > 1 ? ids.filter((id) => id !== excludeId) : ids;
