@@ -183,6 +183,7 @@ main {
 }
 
 #notice { margin: 16px 0 0; color: var(--again); text-align: center; font-size: 15px; }
+#notice[data-tone="info"] { color: var(--muted); }
 
 .controls {
   display: flex;
