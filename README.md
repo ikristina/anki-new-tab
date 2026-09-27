@@ -5,6 +5,7 @@ A Chrome extension that turns every new tab into a quick Anki review. It shows o
 - Random due card on every new tab, from the decks you choose
 - Grade with **Again / Hard / Good / Easy** (buttons or keys 1–4); grades are saved in Anki
 - Optional new cards, with a daily limit you set
+- Plays a card's audio, with an optional auto-play toggle
 - Pomodoro timer shared across tabs, with a desktop notification when a phase ends
 - Light and dark mode
 
@@ -79,17 +80,29 @@ There's no build step. After you change a file, click the reload icon on the ext
 - **New cards**: off by default. Tick "Include new cards" and set a daily limit. While you're under the limit, about 1 in 4 cards is new. Cards you first studied today count toward the limit, whether you studied them here or in Anki. This is separate from Anki's own "new cards per day" setting, which doesn't apply to searches.
 - **Pomodoro**: lengths of focus (25 min), break (5 min) and long break (15 min) sessions.
 
+- **Audio**: off by default. Every clip on a card gets its own player, which you can always press by hand. Tick "Auto-play audio" in settings to have the first clip start as soon as the card is shown.
+
 **Skip this card** loads a different card without grading it.
 
 **Pomodoro.** Press Start in the header. Each phase waits for you to start it. Every fourth focus session is followed by the long break, and skipping a session doesn't count toward that. The countdown is shared by all open tabs and appears in the tab title. A background worker shows a desktop notification when a phase ends, even if no new tab is open. If you don't see notifications, allow them for your browser in your system's notification settings.
 
 **Which cards appear.** Cards that are due (review and learning) from the selected decks. Suspended and buried cards are excluded.
 
+## Audio
+
+Each `[sound:...]` clip on the shown side gets a native player, placed where the clip appears on the card. Auto-play, when turned on, plays the first clip as soon as the card is shown.
+
+- **Browsers block auto-play by default**, and this is out of the extension's control. Chrome grants a page the ability to auto-play unmuted sound only after you've played sound on it yourself a few times (its Media Engagement Index) — so on a new install, the first clips will likely need a manual press, and auto-play should start working on its own after you've used it for a while. The player is always there either way.
+- Audio isn't part of grading: the review itself works the same whether or not a clip plays.
+- Video, and other non-audio files referenced by a `[sound:...]` tag, aren't played.
+- Spoken-text (TTS) tags aren't supported, since AnkiConnect has no way to synthesize speech; they're silently skipped.
+- Resolving *which* file a card's `[anki:play:...]` marker refers to is a best-effort match against the note's fields and its card template, mirroring how Anki itself numbers them. It's exact for ordinary templates. A card whose template is unusual enough to defeat this shows a small 🔈 badge instead of the wrong clip — a safety fallback, not a wrong answer.
+
 ## Good to know
 
 - Grades are saved to Anki's collection. Anki's window doesn't redraw by itself, so return to the Decks screen or re-run a search in Browse to see them.
 - The extension doesn't sync to AnkiWeb. Sync from Anki as usual.
-- Cards render in a sandboxed frame. JavaScript inside card templates doesn't run, and audio isn't supported yet.
+- Cards render in a sandboxed frame, so JavaScript inside card templates doesn't run.
 - **Several browsers or tabs at once** work fine: they share one Anki, which handles requests one at a time. Just before saving a grade, the extension re-checks the card. If it was reviewed, suspended or buried in the meantime (in another browser, another tab or Anki itself), your answer is skipped instead of counted twice, and you get another card. If Anki doesn't reply in time, the extension checks whether the answer was saved before asking you to grade again.
 - The Pomodoro timer is kept per browser, and settings sync only within the same browser account, so set them up once in each browser.
 - Your settings are saved with your browser profile (and sync across your devices if Chrome sync is on). The Pomodoro state stays on the current device.
@@ -108,14 +121,14 @@ There's no build step. After you change a file, click the reload icon on the ext
 npm test
 ```
 
-Runs the unit tests with Node's built-in runner and needs no dependencies. They cover the search queries (deck-name escaping, the new-card limit and mix), random pick, deck sorting and the Pomodoro state machine.
+Runs the unit tests with Node's built-in runner and needs no dependencies. They cover the search queries (deck-name escaping, the new-card limit and mix), random pick, deck sorting, audio-marker resolution, and the Pomodoro state machine.
 
 | File | Purpose |
 |---|---|
 | `manifest.json` | Extension manifest (MV3, new tab override, background worker) |
 | `newtab.html` / `.css` / `.js` | The new tab page and its logic |
-| `anki.js` | AnkiConnect client and search-query helpers |
-| `render.js` | Builds the card document for the sandboxed frame |
+| `anki.js` | AnkiConnect client, search-query helpers, and audio-marker resolution |
+| `render.js` | Builds the card document for the sandboxed frame, including audio and image players |
 | `settings.js` | Settings and timer storage |
 | `pomodoro.js` | Pomodoro state machine (pure functions) |
 | `background.js` | Service worker: alarm and notifications |

@@ -4,6 +4,7 @@ const DEFAULTS = {
   selectedDecks: [], // empty means every deck
   includeNew: false,
   newCardLimit: 20,
+  autoplayAudio: false,
   pomodoro: DEFAULT_DURATIONS,
 };
 
