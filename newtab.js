@@ -6,6 +6,9 @@ import {
   newCardAllowance,
   shouldPickNew,
   cardChanged,
+  parseFieldRefs,
+  soundListForSide,
+  templateByOrd,
   pickRandom,
   compareDeckNames,
   AnkiUnreachable,
@@ -36,6 +39,7 @@ const els = {
   clearDecksBtn: $('clear-decks-btn'),
   includeNew: $('include-new'),
   newLimit: $('new-limit'),
+  autoplayAudio: $('autoplay-audio'),
   pomoWork: $('pomo-work'),
   pomoBreak: $('pomo-break'),
   pomoLong: $('pomo-long'),
@@ -58,6 +62,7 @@ const state = {
   busy: false,
   loadToken: 0,
   studyChanged: false, // a setting that affects which cards are drawn was changed
+  templateCache: new Map(), // modelName -> modelTemplates() result, reused across cards
 };
 
 // ---------- views ----------
@@ -116,6 +121,35 @@ function fitFrame() {
   doc.querySelectorAll('img').forEach((img) => img.addEventListener('load', fit, { once: true }));
 }
 els.frame.addEventListener('load', fitFrame);
+
+// audio elements already carry a real data: src (buildCardDocument resolves it), so this
+// can run as soon as the frame loads, no waiting for a fetch.
+function tryAutoplay() {
+  if (!state.settings?.autoplayAudio) return;
+  const audio = els.frame.contentDocument?.querySelector('audio.anki-audio');
+  audio?.play().catch(() => {}); // browsers can block autoplay; the visible controls still work
+}
+els.frame.addEventListener('load', tryAutoplay);
+
+// The rendered side's [anki:play:q/a:N] markers are numbered against the note's fields in
+// template order (that's how Anki itself numbers them), so this has to run before the card
+// is rendered. Template lookups are cached per note type, since many due cards share one.
+async function attachSoundLists(card) {
+  try {
+    let templates = state.templateCache.get(card.modelName);
+    if (!templates) {
+      templates = await invoke('modelTemplates', { modelName: card.modelName });
+      state.templateCache.set(card.modelName, templates);
+    }
+    const template = templateByOrd(templates, card.ord);
+    if (!template) return;
+    const fields = Object.fromEntries(Object.entries(card.fields).map(([name, f]) => [name, f.value]));
+    card.qSounds = soundListForSide(parseFieldRefs(template.Front), fields);
+    card.aSounds = soundListForSide(parseFieldRefs(template.Back), fields, card.qSounds);
+  } catch {
+    // Leave qSounds/aSounds unset: the card still shows, just without playable audio.
+  }
+}
 
 async function renderSide(card, side) {
   els.frame.srcdoc = await buildCardDocument(card, side);
@@ -221,6 +255,9 @@ async function loadNext(excludeId = null, notice = '') {
     const [card] = await invoke('cardsInfo', { cards: [pickRandom(pool, excludeId)] });
     if (token !== state.loadToken) return;
     if (!card?.question) throw new AnkiError('The card could not be loaded (it may have just changed).');
+
+    await attachSoundLists(card);
+    if (token !== state.loadToken) return;
 
     await renderSide(card, 'question');
     if (token !== state.loadToken) return;
@@ -381,10 +418,11 @@ function saveCheckedDecks() {
 }
 
 function fillSettingsForm() {
-  const { includeNew, newCardLimit, pomodoro: durations } = state.settings;
+  const { includeNew, newCardLimit, autoplayAudio, pomodoro: durations } = state.settings;
   els.includeNew.checked = includeNew;
   els.newLimit.value = newCardLimit;
   els.newLimit.disabled = !includeNew;
+  els.autoplayAudio.checked = autoplayAudio;
   els.pomoWork.value = durations.workMin;
   els.pomoBreak.value = durations.breakMin;
   els.pomoLong.value = durations.longBreakMin;
@@ -440,6 +478,11 @@ bindNumberInput(els.pomoLong, () => state.settings.pomodoro.longBreakMin, (value
 els.includeNew.addEventListener('change', async () => {
   els.newLimit.disabled = !els.includeNew.checked;
   await saveSetting({ includeNew: els.includeNew.checked }, { affectsStudy: true });
+});
+
+els.autoplayAudio.addEventListener('change', async () => {
+  await saveSetting({ autoplayAudio: els.autoplayAudio.checked });
+  if (els.autoplayAudio.checked) tryAutoplay(); // a card may already be showing; play it now
 });
 
 // ---------- events ----------

@@ -8,6 +8,10 @@ import {
   shouldPickNew,
   NEW_CARD_SHARE,
   cardChanged,
+  parseFieldRefs,
+  extractSoundFilenames,
+  soundListForSide,
+  templateByOrd,
   pickRandom,
   compareDeckNames,
 } from './anki.js';
@@ -56,6 +60,36 @@ test('cardChanged: detects a review, a suspend/bury, or a deleted card', () => {
   assert.equal(cardChanged(shown, { cardId: 7, reps: 3, queue: -2 }), true); // buried
   assert.equal(cardChanged(shown, {}), true); // AnkiConnect's answer for a missing card
   assert.equal(cardChanged(shown, undefined), true);
+});
+
+test('parseFieldRefs: plain refs, filters, dedup, and skips block markers', () => {
+  assert.deepEqual(parseFieldRefs('{{Front}}'), ['Front']);
+  assert.deepEqual(parseFieldRefs('{{furigana:Expression}} {{cloze:Text}}'), ['Expression', 'Text']);
+  assert.deepEqual(parseFieldRefs('{{tts en_US:Word}}'), ['Word']);
+  assert.deepEqual(parseFieldRefs('{{Front}} ... {{Front}}'), ['Front']); // deduped
+  assert.deepEqual(parseFieldRefs('{{#Hint}}{{Hint}}{{/Hint}}{{^Empty}}x{{/Empty}}'), ['Hint']);
+  assert.deepEqual(parseFieldRefs('{{FrontSide}}\n<hr>\n{{Back}}'), ['FrontSide', 'Back']);
+});
+
+test('extractSoundFilenames: in order, empty for no field value', () => {
+  assert.deepEqual(extractSoundFilenames('[sound:a.mp3] text [sound:b.mp3]'), ['a.mp3', 'b.mp3']);
+  assert.deepEqual(extractSoundFilenames('no audio here'), []);
+  assert.deepEqual(extractSoundFilenames(''), []);
+  assert.deepEqual(extractSoundFilenames(undefined), []);
+});
+
+test('soundListForSide: field order, then within-field order, with FrontSide spliced in', () => {
+  const fields = { Front: '[sound:q.mp3]', Back: 'text [sound:a1.mp3] [sound:a2.mp3]' };
+  assert.deepEqual(soundListForSide(['Front'], fields), ['q.mp3']);
+  assert.deepEqual(soundListForSide(['FrontSide', 'Back'], fields, ['q.mp3']), ['q.mp3', 'a1.mp3', 'a2.mp3']);
+  assert.deepEqual(soundListForSide(['FrontSide', 'Back'], fields, null), ['a1.mp3', 'a2.mp3']); // no front list given
+});
+
+test('templateByOrd: picks by position, matching modelTemplates() insertion order', () => {
+  const templates = { 'Card 1': { Front: 'f1', Back: 'b1' }, 'Card 2': { Front: 'f2', Back: 'b2' } };
+  assert.deepEqual(templateByOrd(templates, 0), { Front: 'f1', Back: 'b1' });
+  assert.deepEqual(templateByOrd(templates, 1), { Front: 'f2', Back: 'b2' });
+  assert.equal(templateByOrd(templates, 5), null);
 });
 
 test('pickRandom: covers every index and avoids the excluded id', () => {

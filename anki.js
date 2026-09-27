@@ -97,6 +97,58 @@ export function pickRandom(ids, excludeId = null, rand = Math.random) {
   return pool[Math.floor(rand() * pool.length)];
 }
 
+/**
+ * Anki renders `{{Field}}`, `{{filter:Field}}` and `{{#Field}}`/`{{/Field}}` blocks. This
+ * extracts the plain field names a template *emits* (skips block markers and comments) in
+ * the order they're written, deduplicated. `FrontSide` is kept as-is; the caller resolves
+ * it, since only it knows the question side's own list.
+ */
+export function parseFieldRefs(template) {
+  const refs = [];
+  const seen = new Set();
+  for (const m of template.matchAll(/\{\{([^{}]+)\}\}/g)) {
+    const raw = m[1].trim();
+    if (!raw || '#/^!'.includes(raw[0])) continue; // block open/close, negation, comment
+    const name = raw.includes(':') ? raw.slice(raw.lastIndexOf(':') + 1).trim() : raw;
+    if (!seen.has(name)) {
+      seen.add(name);
+      refs.push(name);
+    }
+  }
+  return refs;
+}
+
+/** `[sound:file.mp3]` occurrences in one field's raw value, in order. */
+export function extractSoundFilenames(fieldValue) {
+  if (!fieldValue) return [];
+  return [...fieldValue.matchAll(/\[sound:([^\]]+)\]/g)].map((m) => m[1]);
+}
+
+/**
+ * The ordered list of sound filenames a rendered side (question or answer) embeds. This is
+ * how Anki itself numbers `[anki:play:q:N]` / `[anki:play:a:N]`: fields are substituted in
+ * literally, so occurrence order in the rendered text equals field-reference order in the
+ * template, then occurrence order within each field's value. `frontSideList` is the
+ * question side's own resolved list, spliced in wherever the answer template writes
+ * `{{FrontSide}}`.
+ */
+export function soundListForSide(fieldRefs, fields, frontSideList = null) {
+  const out = [];
+  for (const ref of fieldRefs) {
+    if (ref === 'FrontSide') {
+      if (frontSideList) out.push(...frontSideList);
+      continue;
+    }
+    out.push(...extractSoundFilenames(fields[ref]));
+  }
+  return out;
+}
+
+/** `modelTemplates()` returns `{templateName: {Front, Back}}`; card.ord picks by position. */
+export function templateByOrd(templates, ord) {
+  return Object.values(templates)[ord] ?? null;
+}
+
 /** Sort comparator that keeps `Parent::Child` right after `Parent`. */
 export function compareDeckNames(a, b) {
   const pa = a.split('::');
