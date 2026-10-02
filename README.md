@@ -2,6 +2,8 @@
 
 A Chrome extension that turns every new tab into a quick Anki review. It shows one random card that's due, lets you reveal the answer and grade it, and writes the grade back to Anki. It also has a Pomodoro timer in the header.
 
+![Anki New Tab showing a Latin card with the Pomodoro timer and grade buttons](docs/screenshot.png)
+
 - Random due card on every new tab, from the decks you choose
 - Grade with **Again / Hard / Good / Easy** (buttons or keys 1–4); grades are saved in Anki
 - Optional new cards, with a daily limit you set
